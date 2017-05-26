@@ -37,31 +37,35 @@ How to link DCG with facts
 
 %%=============================================================================
 
-s --> statement. %% | question.
+s(s(STATEMENT)) --> statement(STATEMENT).
 
-statement --> p(property), prep_p, vp.
+%% s --> question.
+
+statement(statement(P, PREP_P, VP)) --> p(property, P), prep_p(PREP_P), vp(VP).
 %% Thing is each type of phrase: object, property, or property_value
-p(Thing) --> det, n(Thing) | n(Thing).
+p(Thing, p(DET,N)) --> det(DET), n(Thing, N).
+p(Thing, p(N)) --> n(Thing, N).
 
 %% Preposition phrase e.g. "of the car"
-prep_p --> prep, p(object).
+prep_p(prep_p(PREP, P)) --> prep(PREP), p(object,P).
 
-vp --> v, p(property_value).
+vp(vp(V, P)) --> v(V), p(property_value, P).
 
-det --> [the] | [a].
+det(det(the)) --> [the].
+det(det(a)) --> [a].
 
-n(object) --> [car].
+n(object, n(car)) --> [car].
 
-n(property) --> [color].
+n(property, n(color)) --> [color].
 
-n(property_value) --> [blue].
+n(property_value, n(blue)) --> [blue].
 
-v --> [is].
+v(v(is)) --> [is].
 %% Preposition
-prep --> [of].
+prep(prep(of)) --> [of].
 
 %% Interrogative Determiner
-inter_det --> [what].
+%% inter_det --> [what].
 
 %% fact(object, property, property_value)
 fact(car, color, blue).
