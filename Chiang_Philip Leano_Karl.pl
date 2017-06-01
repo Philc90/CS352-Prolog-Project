@@ -11,13 +11,19 @@ How to link DCG with facts
 
 */
 
-neg(Goal) :- Goal,!,fail.
-neg(Goal).
-
+%% TODO: Just for testing the parse tree. remove before final submission
 %% execute(List, Ans) :- s(ParseTree, List, []), Ans = ParseTree.
 
+%% execute: the first execution rule. Generate a parse tree through 's' which is
+%% the grammar, then go to executeIntermediate
 execute(List, Ans) :- s(ParseTree, List, []), executeIntermediate(ParseTree, Ans).
 
+%% executeIntermediate: try to figure out the structure of the parse tree.
+%% cases:
+%% parse tree is a stmt with no adjective
+%% parse tree is a stmt with adjective
+%% parse tree is a query
+%% parse tree is unidentified; i.e. user entered something weird
 executeIntermediate(ParseTree, Ans) :-
     ParseTree = s(stmt(p(_, n(Property)), prep_p(_, p(_, n(Object))), vp(_, p(n(PropertyValue))))),
     executeHelper(Object, Property, PropertyValue, Ans), !.
@@ -32,31 +38,31 @@ executeIntermediate(ParseTree, Ans) :- Ans = ["I don't know."], !.
 %% Fact is already in the database.
 executeHelper(Object, Property, PropertyValue, Ans) :-
     fact(Object, Property, PropertyValue),
-    Ans = ["I know."], !.
+    Ans = [i, know], !.
 
 %% Conflicting fact is in the database.
 executeHelper(Object, Property, PropertyValue, Ans) :-
     fact(Object, Property, ExistingPropertyValue),
     ExistingPropertyValue \= PropertyValue,
-    Ans = ["No, it's", ExistingPropertyValue], !.
+    append([no, it, is], ExistingPropertyValue, Ans), !.
 
 %% Object is in the database, but user wants to define new property & property value.
 executeHelper(Object, Property, PropertyValue, Ans) :-
     fact(Object, ExistingProperty, _),
     Property \= ExistingProperty,
     assert(fact(Object, Property, PropertyValue)),
-    Ans = ["OK."], !.
+    Ans = [ok], !.
 
 %% Fact isn't in database
 executeHelper(Object, Property, PropertyValue, Ans) :-
     not(fact(Object, _, _)),
     assert(fact(Object, Property, PropertyValue)),
-    Ans = ["OK."], !.
+    Ans = [ok], !.
 
 %% Query of database
 executeQuery(Object, Property, Ans) :-
     fact(Object, Property, PropertyValue),
-    Ans = ["It's ", PropertyValue], !.
+    append([it, is], PropertyValue, Ans), !.
 
 s(s(STATEMENT)) --> stmt(STATEMENT).
 
@@ -88,7 +94,7 @@ n(object, n(Obj)) --> [Obj].
 
 n(property, n(Prop)) --> [Prop].
 
-n(property_value, n(PropVal)) --> [PropVal].
+n(property_value, n(PropVal), PropValList, _) :- PropVal = PropValList.
 
 v(v(is)) --> [is].
 %% Preposition
@@ -96,4 +102,5 @@ prep(prep(of)) --> [of].
 
 %% Database is stored as a series of terms:
 %% fact(object, property, property_value)
-fact(car, color, blue).
+fact(car, color, [blue]).
+fact(boat, color, [dark, blue]).
