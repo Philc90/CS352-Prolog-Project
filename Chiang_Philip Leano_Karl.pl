@@ -11,40 +11,70 @@ How to link DCG with facts
 
 */
 
-%% execute(S, E) :- s(S, M), write("I know.").
+neg(Goal) :- Goal,!,fail.
+neg(Goal).
 
-%%=============================================================================
+%% execute(List, Ans) :- s(ParseTree, List, []), Ans = ParseTree.
 
-%% Fact is in the database.
-%% execute(S, E) :- S = [the, Prop, of, the, Obj, is, Prop_val], fact(Obj, Prop, Prop_val),
-%%    write("I know."), !.
+execute(List, Ans) :- s(ParseTree, List, []), executeIntermediate(ParseTree, Ans).
 
-%% Conflicting fact is in the database.
-%% execute(S, E) :- S = [the, Prop, of, the, Obj, is, Prop_val], fact(Obj, Prop, Actual_prop_val),
-%%    format("That's not true. The ~w of the ~w is ~w.", [Prop, Obj, Actual_prop_val]), !.
+executeIntermediate(ParseTree, Ans) :-
+    ParseTree = s(stmt(p(_, n(Property)), prep_p(_, p(_, n(Object))), vp(_, p(n(PropertyValue))))),
+    executeHelper(Object, Property, PropertyValue, Ans), !.
 
-%% Object is in the database, but user wants to define new property & property value.
-%% execute(S, E) :- S = [the, Prop, of, the, Obj, is, Prop_val], fact(Obj, Existing_prop, _),
-%%    Existing_prop \= Prop, assert(fact(Obj, Prop, Prop_val)), write("OK."), !.
-
-%% Fact isn't in database
-%% execute(S, E) :- S = [the, Prop, of, the, Obj, is, Prop_val],
-%%    fact(Existing_obj, _, _), Existing_obj \= Obj,
-%%    assert(fact(Obj, Prop, Prop_val)), write("OK."), !.
+executeIntermediate(ParseTree, Ans) :-
+    ParseTree = s(question(_, p(_, n(Property)), prep_p(_, p(_, n(Object))))),
+    executeQuery(Object, Property, Ans), !.
 
 %% User entered something weird
-%% execute(_,_) :- write("I don't know."), !.
+executeIntermediate(ParseTree, Ans) :- Ans = ["I don't know."], !.
 
-%%=============================================================================
+%% Fact is already in the database.
+executeHelper(Object, Property, PropertyValue, Ans) :-
+    fact(Object, Property, PropertyValue),
+    Ans = ["I know."], !.
 
-s(s(STATEMENT)) --> statement(STATEMENT).
+%% Conflicting fact is in the database.
+executeHelper(Object, Property, PropertyValue, Ans) :-
+    fact(Object, Property, ExistingPropertyValue),
+    ExistingPropertyValue \= PropertyValue,
+    Ans = ["No, it's", ExistingPropertyValue], !.
 
-%% s --> question.
+%% Object is in the database, but user wants to define new property & property value.
+executeHelper(Object, Property, PropertyValue, Ans) :-
+    fact(Object, ExistingProperty, _),
+    Property \= ExistingProperty,
+    assert(fact(Object, Property, PropertyValue)),
+    Ans = ["OK."], !.
 
-statement(statement(P, PREP_P, VP)) --> p(property, P), prep_p(PREP_P), vp(VP).
-%% Thing is each type of phrase: object, property, or property_value
+%% Fact isn't in database
+executeHelper(Object, Property, PropertyValue, Ans) :-
+    not(fact(Object, _, _)),
+    assert(fact(Object, Property, PropertyValue)),
+    Ans = ["OK."], !.
+
+%% Query of database
+executeQuery(Object, Property, Ans) :-
+    fact(Object, Property, PropertyValue),
+    Ans = ["It's ", PropertyValue], !.
+
+s(s(STATEMENT)) --> stmt(STATEMENT).
+
+s(s(QUESTION)) --> question(QUESTION).
+
+stmt(stmt(P, PREP_P, VP)) --> p(property, P), prep_p(PREP_P), vp(VP).
+
+question(question(INTER_P, P, PREP_P)) --> inter_p(INTER_P), p(property, P), prep_p(PREP_P).
+
+%% Thing is the type of each noun in the phrase: object, property, or property_value
 p(Thing, p(DET,N)) --> det(DET), n(Thing, N).
 p(Thing, p(N)) --> n(Thing, N).
+
+%% Interrogative phrase: e.g. "what is"
+inter_p(inter_p(INTER_DET, V)) --> inter_det(INTER_DET), v(V).
+
+%% Interrogative Determiner
+inter_det(inter_det(what)) --> [what].
 
 %% Preposition phrase e.g. "of the car"
 prep_p(prep_p(PREP, P)) --> prep(PREP), p(object,P).
@@ -54,18 +84,16 @@ vp(vp(V, P)) --> v(V), p(property_value, P).
 det(det(the)) --> [the].
 det(det(a)) --> [a].
 
-n(object, n(car)) --> [car].
+n(object, n(Obj)) --> [Obj].
 
-n(property, n(color)) --> [color].
+n(property, n(Prop)) --> [Prop].
 
-n(property_value, n(blue)) --> [blue].
+n(property_value, n(PropVal)) --> [PropVal].
 
 v(v(is)) --> [is].
 %% Preposition
 prep(prep(of)) --> [of].
 
-%% Interrogative Determiner
-%% inter_det --> [what].
-
+%% Database is stored as a series of terms:
 %% fact(object, property, property_value)
 fact(car, color, blue).
